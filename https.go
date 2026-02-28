@@ -15,11 +15,8 @@ func handleHTTPS(request *http.Request, clientConn net.Conn) {
 	// Check block list
 	// Cannot block URL paths with HTTPS
 	host := request.URL.Hostname()
-	blocklistMutex.RLock()
-	isBlocked := blocklist[host]
-	blocklistMutex.RUnlock()
-
-	if isBlocked {
+	isBlocked, found := blocklist.Get(host)
+	if found && isBlocked.(bool) == true {
 		fmt.Println("Blocked request to", host)
 		response := "HTTP/1.1 403 Forbidden\r\nContent-Type: text/html\r\n\r\n<html><body><h1>403 Forbidden: URL Blocked by Proxy</h1></body></html>\n"
 		clientConn.Write([]byte(response))

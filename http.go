@@ -16,11 +16,8 @@ func handleHTTP(request *http.Request, clientConn net.Conn) {
 
 	// Check block list for full URL
 	url := request.URL.String()
-	blocklistMutex.RLock()
-	isBlocked := blocklist[url]
-	blocklistMutex.RUnlock()
-
-	if isBlocked {
+	isBlocked, found := blocklist.Get(url)
+	if found && isBlocked.(bool) == true {
 		fmt.Println("Blocked request to", url)
 		response := "HTTP/1.1 403 Forbidden\r\nContent-Type: text/html\r\n\r\n<html><body><h1>403 Forbidden: URL Blocked by Proxy</h1></body></html>\n"
 		clientConn.Write([]byte(response))
