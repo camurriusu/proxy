@@ -5,12 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"sync"
 )
-
-// Thread safe block list
-var blocklistMutex sync.RWMutex
-var blocklist = make(map[string]bool) // key: url, value: boolean
 
 func runConsole() {
 	scanner := bufio.NewScanner(os.Stdin)
@@ -32,9 +27,7 @@ func runConsole() {
 			}
 			// Mark URL as blocked
 			targetUrl := args[1]
-			blocklistMutex.Lock()
-			blocklist[targetUrl] = true
-			blocklistMutex.Unlock()
+			blocklist.Set(targetUrl, true)
 			fmt.Println(targetUrl, "blocked")
 		// unblock <url>
 		case "unblock":
@@ -44,20 +37,18 @@ func runConsole() {
 			}
 			// Mark URL as unblocked
 			targetUrl := args[1]
-			blocklistMutex.Lock()
-			blocklist[targetUrl] = false
-			blocklistMutex.Unlock()
+			blocklist.Set(targetUrl, false)
 			fmt.Println(targetUrl, "unblocked")
 		// list
 		case "list":
 			// List all blocked URLs
-			blocklistMutex.RLock()
-			for url, val := range blocklist {
+			blocklist.mutex.RLock()
+			for url, val := range blocklist.data {
 				if val == true {
 					fmt.Println(url)
 				}
 			}
-			blocklistMutex.RUnlock()
+			blocklist.mutex.RUnlock()
 		default:
 			fmt.Println("Unknown command")
 		}

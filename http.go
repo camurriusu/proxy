@@ -41,7 +41,7 @@ func handleHTTP(request *http.Request, clientConn net.Conn) {
 	data, found := cache.Get(key)
 	if found {
 		startHit := time.Now()
-		clientConn.Write(data)
+		clientConn.Write(data.([]byte))
 		fmt.Printf("HIT %s in %v\n", key, time.Since(startHit))
 		return
 	}
