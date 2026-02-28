@@ -7,13 +7,8 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
-	"sync"
 	"time"
 )
-
-// Thread safe cache
-var cacheMutex sync.RWMutex
-var cache = make(map[string][]byte) // key: url, value: array of bytes
 
 // GET
 func handleHTTP(request *http.Request, clientConn net.Conn) {
@@ -43,10 +38,7 @@ func handleHTTP(request *http.Request, clientConn net.Conn) {
 	key := hostPort + request.URL.RequestURI()
 
 	// Check cache
-	cacheMutex.RLock()
-	data, found := cache[key]
-	cacheMutex.RUnlock()
-
+	data, found := cache.Get(key)
 	if found {
 		startHit := time.Now()
 		clientConn.Write(data)
@@ -95,9 +87,7 @@ func handleHTTP(request *http.Request, clientConn net.Conn) {
 	// (Needs Ctrl+Shift+R in browser to bypass local cache)
 	// Save cache only if HTTP status is 200 OK
 	if response.StatusCode == http.StatusOK {
-		cacheMutex.Lock()
-		cache[key] = responseDump
-		cacheMutex.Unlock()
+		cache.Set(key, responseDump)
 	}
 
 	// Send cached web page to client
