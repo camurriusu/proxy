@@ -34,13 +34,15 @@ func handleHTTP(request *http.Request, clientConn net.Conn) {
 	hostPort := net.JoinHostPort(host, port) // example.com:80
 	key := hostPort + request.URL.RequestURI()
 
-	// Check cache
-	data, found := cache.Get(key)
-	if found {
-		startHit := time.Now()
-		clientConn.Write(data.([]byte))
-		fmt.Printf("HIT %s in %v\n", key, time.Since(startHit))
-		return
+	// Check cache only if request is GET
+	if request.Method == http.MethodGet {
+		data, found := cache.Get(key)
+		if found {
+			startHit := time.Now()
+			clientConn.Write(data.([]byte))
+			fmt.Printf("HIT %s in %v\n", key, time.Since(startHit))
+			return
+		}
 	}
 
 	startMiss := time.Now()
@@ -83,7 +85,7 @@ func handleHTTP(request *http.Request, clientConn net.Conn) {
 
 	// (Needs Ctrl+Shift+R in browser to bypass local cache)
 	// Save cache only if HTTP status is 200 OK
-	if response.StatusCode == http.StatusOK {
+	if response.StatusCode == http.StatusOK && request.Method == http.MethodGet {
 		cache.Set(key, responseDump)
 	}
 

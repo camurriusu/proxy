@@ -38,16 +38,10 @@ func createConn(conn net.Conn) {
 		return
 	}
 
-	method := request.Method
-
 	// Switch to appropriate handling method
-	switch method {
-	case http.MethodGet:
-		handleHTTP(request, conn)
-	case http.MethodConnect:
+	if request.Method == http.MethodConnect {
 		handleHTTPS(request, conn)
-	default:
-		log.Println(method, "method is not supported. Must be GET or CONNECT")
-		return
+	} else {
+		handleHTTP(request, conn)
 	}
 }
