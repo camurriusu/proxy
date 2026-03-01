@@ -9,8 +9,8 @@ import (
 )
 
 func start() {
-	// Start proxy at port localhost:8080
-	ln, err := net.Listen("tcp", ":8080")
+	// Start proxy at port 8080
+	ln, err := net.Listen("tcp", "127.0.0.1:8080")
 	if err != nil {
 		log.Fatal(err)
 	}
