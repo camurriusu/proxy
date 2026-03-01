@@ -57,12 +57,40 @@ for {
 	go createConn(conn)
 }
 ```
-Then, it is important to read the method type in the request header. A `CONNECT` signals the beginning of an encrypted HTTPS connection, while any other request method, e.g. `GET`, `POST`, etc. implies a HTTP/1.1 connection. This works because a `CONNECT` request method is required to start a HTTPS connection, after which any type of request after the handshake is supported until either end closes the connection. Therefore, any other request method our proxy server may see must be `HTTP` only. 
+Then, it is important to read the method type in the request header. A `CONNECT` signals the beginning of an encrypted HTTPS connection, while any other request method, e.g. `GET`, `POST`, etc. implies a HTTP/1.1 connection. This works because a `CONNECT` request method is required to start a HTTPS connection, after which any type of request after the handshake is supported until either end closes the connection. Therefore, any other request method our proxy server may see must be `HTTP` only.
+
+In accordance with HTTP/1.1 specification, we consider all connections to be persistent, and the browser does not need to explicitly send a Connection: keep-alive header. The connection is closed if handleHTTP() returns an error or if the request includes Connection: close.
 ```go
-if request.Method == http.MethodConnect {
-	handleHTTPS(request, conn)
-} else {
-	handleHTTP(request, conn)
+defer conn.Close()
+
+// Read request
+reader := bufio.NewReader(conn)
+
+// Connection: keep-alive is default
+for {
+	request, err := http.ReadRequest(reader)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	// Switch to appropriate handling method
+	if request.Method == http.MethodConnect {
+		handleHTTPS(request, conn)
+		// CONNECT already kept connection alive
+		return
+	} else {
+		// If error occurs, close connection
+		err = handleHTTP(request, conn)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+		// Check Connection: close
+		if request.Close {
+			return
+		}
+	}
 }
 ```
 ### Handling HTTPS
@@ -131,4 +159,5 @@ We make use of Go’s net and bufio libraries.
 - The request object we have created is very useful, especially for handling unencrypted HTTP requests. We can easily extract any relevant header fields. We extract the URL hostname and port and use them to create a new `net.Conn` object, creating a connection between the proxy and the automatically resolved web server. The extracted request object has a `Write()` method that can take this `net.Conn` object as an argument. This will correctly dump the bytes contained in the request (as exactly how we intercepted them from our bufio.Reader) so that they are relayed to the web server.
 - It will also handle absolute to origin-form request line translations. This is required because without a proxy, once a connection with a web server has been established, all requests only include a pathname (origin-form). DNS look-up has been performed by the browser. However, when enabling proxy settings on a machine, all requests will be in absolute-form (the request line contains the full URL), since DNS resolution responsibility has been shifted to the proxy. This is a required HTTP/1.1 specification. However, once the connection with the web server has been established, the proxy must drop absolute-form and only use origin-form with the web server to avoid errors. This is a question of simple string parsing that is automatically done by `request.Write()`.
 - To create the new `net.Conn` object, we use `net.Dial()`. This method is the opposite of `net.Listen()` and uses the same arguments. If a URL is passed, it will resolve it to an IP using our configured DNS server. Afterwards, it will complete the 3-way handshake to finally return our `net.Conn` object.
-- To handle HTTPS requests, once we established our own connection with the web server, we manually write back a `HTTP/1.1 200 Connection Established` message back to client’s machine. Note that we have two `net.Conn` objects, one is between the client and us, while the second is between us and the webserver. We can set up a blind full duplex channel between the client and the webserver by manually copying bytes from one `net.Conn` object to the other using a small buffer. This is why we use `io.Copy()`. Since `io.Copy()` will block our goroutine until it receives an `EOF` signal, at least one `io.Copy()` call (two calls are made for either direction) lives in a separate goroutine. Our `handleHTTPS()` goroutine waits until either `io.Copy()` is done. 
+- To handle HTTPS requests, once we established our own connection with the web server, we manually write back a `HTTP/1.1 200 Connection Established` message back to client’s machine. Note that we have two `net.Conn` objects, one is between the client and us, while the second is between us and the webserver. We can set up a blind full duplex channel between the client and the webserver by manually copying bytes from one `net.Conn` object to the other using a small buffer. This is why we use `io.Copy()`. Since `io.Copy()` will block our goroutine until it receives an `EOF` signal, at least one `io.Copy()` call (two calls are made for either direction) lives in a separate goroutine. Our `handleHTTPS()` goroutine waits until either `io.Copy()` is done.
+- We also make use of `http.ReadResponse(reader, request)`, which is very similar to `http.ReadRequest(reader)` that was explained earlier. The main difference is that it takes a `http.Request` pointer as argument for the context needed to handle edge cases such as a `HTTP/1.1 100 Continue` response before a `HTTP/1.1 200 OK`, or a `HTTP/1.1 200 OK` response that includes a `Content-Length` although there are no attached bytes (a normal response to a `HEAD` request).
