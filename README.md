@@ -34,7 +34,7 @@ func (sf *SafeMap) Set(key string, value any) {
     sf.data[key] = value
 }
 ```
-It has a getter and setter that ensure atomicity for reading or writing data, using Go’s sync.RWMutex type, which is essential since we are interacting with these data structures concurrently from potentially several goroutines. Examples of their usage include:
+It has a getter and setter that ensure atomicity for reading or writing data, using Go’s `sync.RWMutex` type, which is essential since we are interacting with these data structures concurrently from potentially several goroutines. Examples of their usage include:
 ```go
 data, found := cache.Get(key)
 isBlocked, found := blocklist.Get(url)
@@ -57,7 +57,7 @@ for {
 	go createConn(conn)
 }
 ```
-Then, it is important to read the method type in the request header. A `CONNECT` signals the beginning of an encrypted HTTPS connection, while any other request method, e.g. `GET`, `POST`, etc. implies a HTTP/1.1 connection. This works because a `CONNECT` request method is required to start a HTTPS connection, after which any type of request after the handshake is supported until either end closes the connection. Therefore, any other request method our proxy server may see must be `HTTP` only.
+Then, it is important to read the method type in the request header. A `CONNECT` signals the beginning of an encrypted HTTPS connection, while any other request method, e.g. `GET`, `POST`, etc. implies a HTTP/1.1 connection. This works because a `CONNECT` request method is required to start a HTTPS connection, after which any type of request after the handshake is supported until either end closes the connection. Therefore, any other request method our proxy server may see must be HTTP only.
 
 In accordance with HTTP/1.1 specification, we consider all connections to be persistent, and the browser does not need to explicitly send a Connection: keep-alive header. The connection is closed if handleHTTP() returns an error or if the request includes Connection: close.
 ```go
