@@ -15,11 +15,15 @@ import (
 func handleHTTP(request *http.Request, clientConn net.Conn) error {
 	start := time.Now()
 
-	// Check block list for full URL
+	// Check block list for either hostname or full URL
+	hostName := request.URL.Hostname()
+	isBlocked, found := blocklist.Get(hostName)
+
 	url := request.URL.String()
-	isBlocked, found := blocklist.Get(url)
+	if !found || isBlocked.(bool) == false {
+		isBlocked, found = blocklist.Get(url)
+	}
 	if found && isBlocked.(bool) == true {
-		fmt.Println("Blocked request to", url)
 		response := "HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Type: text/html\r\n\r\n<html><body><h1>403 Forbidden: URL Blocked by Proxy</h1></body></html>\n"
 		clientConn.Write([]byte(response))
 		return errors.New("Request to " + url + " blocked by proxy")
@@ -31,14 +35,12 @@ func handleHTTP(request *http.Request, clientConn net.Conn) error {
 	if port == "" {
 		port = "80"
 	}
-	// e.g. key = example.com:80/index.html
-	key := request.URL.String()
 	// Check cache only if request is GET
 	if request.Method == http.MethodGet {
-		data, found := cache.Get(key)
+		data, found := cache.Get(url)
 		if found {
 			clientConn.Write(data.([]byte))
-			fmt.Printf("HIT %s in %v\n", key, time.Since(start))
+			fmt.Printf("HIT %s in %v\n", url, time.Since(start))
 			return nil
 		}
 	}
@@ -87,12 +89,12 @@ func handleHTTP(request *http.Request, clientConn net.Conn) error {
 
 	// Save cache only if HTTP status is 200 OK and method is GET
 	if response.StatusCode == http.StatusOK && request.Method == http.MethodGet {
-		cache.Set(key, responseDump)
+		cache.Set(url, responseDump)
 	}
 
 	// Send cached web page to client
 	clientConn.Write(responseDump)
-	fmt.Printf("MISS %s in %v\n", key, time.Since(start))
+	fmt.Printf("MISS %s in %v\n", url, time.Since(start))
 
 	// Easy way of closing keep-alive loop in server.go
 	if response.Close {
