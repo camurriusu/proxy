@@ -137,15 +137,18 @@ Note that the cache is only checked and written to if the request method is `GET
 responseDump, err := httputil.DumpResponse(response, true)
 if err != nil {
 	log.Println("Error dumping response:", err)
-	// If error, forward response back to client
+	// If error, forward response back to client without saving byte dump
 	err = response.Write(clientConn)
 	if err != nil {
 		log.Println("Error relaying response to client:", err)
-		return
+		return err
 	}
+	// Avoid caching broken dump
+	return nil
 }
-// Save cache only if HTTP status is 200 OK
-if response.StatusCode == http.StatusOK {
+
+// Save cache only if HTTP status is 200 OK and method is GET
+if response.StatusCode == http.StatusOK && request.Method == http.MethodGet {
 	cache.Set(key, responseDump)
 }
 ```
