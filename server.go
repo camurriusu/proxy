@@ -28,7 +28,7 @@ func start() {
 }
 
 func createConn(conn net.Conn) {
-	fmt.Println("Received request from", conn.RemoteAddr())
+	//fmt.Println("Received request from", conn.RemoteAddr())
 
 	// Read request
 	reader := bufio.NewReader(conn)

@@ -39,7 +39,7 @@ func handleHTTPS(request *http.Request, clientConn net.Conn) {
 	}
 	defer conn.Close()
 
-	// On successful connection, send HTTP 200 OK to client to start handshake
+	// On successful connection, send HTTP 200 code to client to start handshake
 	_, err = clientConn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n"))
 	if err != nil {
 		log.Println("Error sending 200 code to client:", err)
