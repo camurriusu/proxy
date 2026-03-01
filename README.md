@@ -15,7 +15,7 @@ The server is split into six files, each implementing a specific aspect of the s
 
 ### Concurrency
 The cache and blocklist data structures are defined by a struct in safemap.go that implements a thread-safe dictionary in Go.
-```
+```go
 type SafeMap struct {
 	mutex sync.RWMutex
 	data  map[string]any
@@ -35,7 +35,7 @@ func (sf *SafeMap) Set(key string, value any) {
 }
 ```
 It has a getter and setter that ensure atomicity for reading or writing data, using Go’s sync.RWMutex type, which is essential since we are interacting with these data structures concurrently from potentially several goroutines. Examples of their usage include:
-```
+```go
 data, found := cache.Get(key)
 isBlocked, found := blocklist.Get(url)
 cache.Set(key, responseDump)
@@ -47,7 +47,7 @@ The management console lives in the `runConsole()` method in `console.go`, runni
 
 ### On start-up
 The server listens for incoming connections at an arbitrary port, in our case port number 8080, with `ln, err := net.Listen("tcp", "127.0.0.1:8080")`. On each successful connection from a client, we create a new thread to handle it in `createConn()`.
-```
+```go
 for {
 	conn, err := ln.Accept()
 	if err != nil {
@@ -58,7 +58,7 @@ for {
 }
 ```
 Then, it is important to read the method type in the request header. A `CONNECT` signals the beginning of an encrypted HTTPS (and therefore HTTP/2) connection, while any other request method, e.g. `GET`, `POST`, etc. implies a HTTP/1.1 connection. This works because a `CONNECT` request method is required to start a HTTPS connection, after which any type of request after the handshake is supported until either end closes the connection. Therefore, any other request method our proxy server may see must be `HTTP` only. 
-```
+```go
 if request.Method == http.MethodConnect {
 	handleHTTPS(request, conn)
 } else {
@@ -73,7 +73,7 @@ Below is the flow of `handleHTTPS()`:
 4.	Send `HTTP/1.1 200 Connection Established` to the client to begin the handshake.
 5.	Blindly relay bytes of data from the client to the web server and vice versa, using anonymous threaded goroutines performing io.Copy(). We take advantage of Go’s channels to signal the end of a byte stream from either end of the connection to close the connection.
 
-```
+```go
 done := make(chan struct{}) // struct{} holds zero bytes
 
 // Copy bytes from server to client until EOF
@@ -104,7 +104,7 @@ For HTTP, it’s a different story:
 8.	Forward the response to the client and report the time elapsed since we started the timer.
 
 Note that the cache is only checked and written to if the request method is `GET`. Caching `POST` and other request methods would be nonsensical since they submit data or modify the server’s data.
-```
+```go
 // Dump response bytes
 responseDump, err := httputil.DumpResponse(response, true)
 if err != nil {
