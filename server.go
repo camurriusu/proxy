@@ -29,19 +29,35 @@ func start() {
 
 func createConn(conn net.Conn) {
 	//fmt.Println("Received request from", conn.RemoteAddr())
+	defer conn.Close()
 
 	// Read request
 	reader := bufio.NewReader(conn)
-	request, err := http.ReadRequest(reader)
-	if err != nil {
-		log.Println(err)
-		return
-	}
 
-	// Switch to appropriate handling method
-	if request.Method == http.MethodConnect {
-		handleHTTPS(request, conn)
-	} else {
-		handleHTTP(request, conn)
+	// Connection: keep-alive is default
+	for {
+		request, err := http.ReadRequest(reader)
+		if err != nil {
+			log.Println(err)
+			return
+		}
+
+		// Switch to appropriate handling method
+		if request.Method == http.MethodConnect {
+			handleHTTPS(request, conn)
+			// CONNECT already kept connection alive
+			return
+		} else {
+			// If error occurs, close connection
+			err = handleHTTP(request, conn)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+			// Check Connection: close
+			if request.Close {
+				return
+			}
+		}
 	}
 }
