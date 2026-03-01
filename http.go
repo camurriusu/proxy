@@ -85,7 +85,7 @@ func handleHTTP(request *http.Request, clientConn net.Conn) error {
 		return nil
 	}
 
-	// Save cache only if HTTP status is 200 OK
+	// Save cache only if HTTP status is 200 OK and method is GET
 	if response.StatusCode == http.StatusOK && request.Method == http.MethodGet {
 		cache.Set(key, responseDump)
 	}
