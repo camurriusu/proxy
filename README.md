@@ -33,7 +33,7 @@ func (sf *SafeMap) Set(key string, value any) {
     sf.data[key] = value
 }
 ```
-It has a getter and setter that ensure atomicity for reading or writing data, using Go’s sync.RWMutex type, which is essential since we are interacting with these data structures concurrently from potentially several goroutines.
+It has a getter and setter that ensure atomicity for reading or writing data, using Go’s sync.RWMutex type, which is essential since we are interacting with these data structures concurrently from potentially several goroutines. Examples of their usage include:
 ```
 data, found := cache.Get(key)
 isBlocked, found := blocklist.Get(url)
@@ -45,7 +45,7 @@ Throughout the project, threading is implemented by using goroutines, i.e. funct
 The management console lives in the `runConsole()` method in `console.go`, running on a separate thread from the web proxy server. There are three commands: `block`, `unblock`, and `list`. Specifying a URL argument for block or unblock will appropriately update the blocklist. The list command will output all URLs marked as blocked. The blocklist is always checked before trying to begin a connection with a web server. On the event the request URL is blocked, we return a `HTTP/1.1 403 Forbidden` error code to the client. It is important to note that due to the encrypted nature of HTTPS, we check the blocklist for the requested hostname, excluding the pathname.
 
 ### On start-up
-The server listens for incoming connections at an arbitrary port, in our case port number 8080, with `ln, err := net.Listen("tcp", "127.0.0.1:8080")`. On each successful connection from a client, we create a new thread to handle it in `createConn()`. Then, it is important to read the method type in the request header. A `GET` request will mean a HTTP/1.1 connection, while `CONNECT` will signal the beginning of an encrypted HTTPS (and therefore HTTP/2) connection.
+The server listens for incoming connections at an arbitrary port, in our case port number 8080, with `ln, err := net.Listen("tcp", "127.0.0.1:8080")`. On each successful connection from a client, we create a new thread to handle it in `createConn()`.
 ```
 for {
 	conn, err := ln.Accept()
@@ -54,6 +54,14 @@ for {
 		continue
 	}
 	go createConn(conn)
+}
+```
+Then, it is important to read the method type in the request header. A `CONNECT` signals the beginning of an encrypted HTTPS (and therefore HTTP/2) connection, while any other request method, e.g. `GET`, `POST`, etc. implies a HTTP/1.1 connection. This works because a `CONNECT` request method is required to start a HTTPS connection, after which any type of request after the handshake is supported until either end closes the connection. Therefore, any other request method our proxy server may see must be `HTTP` only. 
+```
+if request.Method == http.MethodConnect {
+	handleHTTPS(request, conn)
+} else {
+	handleHTTP(request, conn)
 }
 ```
 ### Handling HTTPS
@@ -83,7 +91,7 @@ go func() {
 ```
 Note that we do not implement any caching features for HTTPS. This is because we cannot cache specific web pages since the data passing between client and web server is encrypted. The user may rely on their browser cache.
 
-### Handling HTTP
+### Handling HTTP and Caching
 For HTTP, it’s a different story:
 1.	Check if the request header’s URL (including pathname) is blocked.
 2.	If port is unspecified, set it to port number 80.
@@ -94,6 +102,7 @@ For HTTP, it’s a different story:
 7.	Read the response, and if the status code is `HTTP/1.1 200 OK`, then dump the bytes into the cache.
 8.	Forward the response to the client and report the time elapsed since we started the timer.
 
+Note that the cache is only checked and written to if the request method is `GET`. Caching `POST` and other request methods would be nonsensical since they submit data or modify the server’s data.
 ```
 // Dump response bytes
 responseDump, err := httputil.DumpResponse(response, true)
