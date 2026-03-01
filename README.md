@@ -11,6 +11,7 @@ The server is split into six files, each implementing a specific aspect of the s
 - `safemap.go`
 
 ### Diagram
+<img width="573" height="432" src="https://github.com/user-attachments/assets/5a17854d-82b8-4f4a-bd9b-065bbb9fa9c0" />
 
 ### Concurrency
 The cache and blocklist data structures are defined by a struct in safemap.go that implements a thread-safe dictionary in Go.
